@@ -80,7 +80,7 @@ class ClockWidgetConfigActivity : AppCompatActivity() {
     private fun getClockApps(): List<ClockApp> {
         val packageManager = packageManager
         val mainIntent = Intent(Intent.ACTION_MAIN, null)
-        mainIntent.addCategory(Intent.CATEGORY_APP_CLOCK)
+mainIntent.addCategory("android.intent.category.APP_CLOCK")
         
         val clockApps = mutableListOf<ClockApp>()
         
