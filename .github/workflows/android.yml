@@ -17,14 +17,8 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
         cache: gradle
-    - name: Create Gradle Wrapper
-      run: |
-        mkdir -p gradle/wrapper
-        curl -o gradle/wrapper/gradle-wrapper.jar https://repo.maven.apache.org/maven2/org/gradle/gradle-wrapper/7.5.1/gradle-wrapper-7.5.1.jar
-        curl -o gradle/wrapper/gradle-wrapper.properties https://raw.githubusercontent.com/gradle/gradle/v7.5.1/gradle/wrapper/gradle-wrapper.properties
-        curl -o gradlew https://raw.githubusercontent.com/gradle/gradle/v7.5.1/gradlew
-        curl -o gradlew.bat https://raw.githubusercontent.com/gradle/gradle/v7.5.1/gradlew.bat
-        chmod +x gradlew
+    - name: Validate Gradle Wrapper
+      run: ./gradlew wrapper --gradle-version 7.5.1 --distribution-type all
     - name: Build with Gradle
       run: ./gradlew build
     - name: Upload Debug APK
