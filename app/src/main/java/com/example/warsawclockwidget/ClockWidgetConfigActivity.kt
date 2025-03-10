@@ -20,27 +20,35 @@ class ClockWidgetConfigActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_config)
 
-        // Default result in case of cancellation
-        setResult(Activity.RESULT_CANCELED)
-
-        // Retrieve the App Widget ID from the intent extras.
-        appWidgetId = intent.extras?.getInt(
-            AppWidgetManager.EXTRA_APPWIDGET_ID,
-            AppWidgetManager.INVALID_APPWIDGET_ID
-        ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
-
-        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+        // If launched without extras (e.g. via app icon), finish gracefully.
+        if (intent.extras == null) {
+            Log.w("ClockWidgetConfig", "No extras found; finishing configuration.")
             finish()
             return
         }
 
-        // Get available clock apps.
-        val clockApps = getClockApps()
+        setContentView(R.layout.activity_config)
+        // Default result if user cancels.
+        setResult(Activity.RESULT_CANCELED)
 
-        // Set up the list adapter.
+        // Retrieve the widget ID.
+        appWidgetId = intent.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+            Log.e("ClockWidgetConfig", "Invalid widget ID; finishing activity.")
+            finish()
+            return
+        }
+
+        val clockApps = getClockApps()
         val listView = findViewById<ListView>(R.id.clock_apps_list)
+        if (listView == null) {
+            Log.e("ClockWidgetConfig", "ListView (R.id.clock_apps_list) not found in layout.")
+            finish()
+            return
+        }
+
         val adapter = object : ArrayAdapter<ClockApp>(
             this,
             android.R.layout.simple_list_item_2,
@@ -51,27 +59,25 @@ class ClockWidgetConfigActivity : AppCompatActivity() {
                 val view = convertView ?: LayoutInflater.from(context)
                     .inflate(android.R.layout.simple_list_item_2, parent, false)
                 val item = getItem(position)
-                view.findViewById<TextView>(android.R.id.text1).text = item?.name
-                view.findViewById<TextView>(android.R.id.text2).text = item?.packageName
+                view.findViewById<TextView>(android.R.id.text1).text = item?.name ?: "Unknown"
+                view.findViewById<TextView>(android.R.id.text2).text = item?.packageName ?: ""
                 return view
             }
         }
         listView.adapter = adapter
 
-        // When a clock app is selected, save the preference and update the widget.
         listView.setOnItemClickListener { _, _, position, _ ->
             val selectedApp = clockApps[position]
-            getSharedPreferences("WidgetPrefs", MODE_PRIVATE)
-                .edit()
-                .putString("clockApp", selectedApp.packageName)
-                .apply()
+            getSharedPreferences("WidgetPrefs", MODE_PRIVATE).edit().apply {
+                putString("clockApp", selectedApp.packageName)
+                apply()
+            }
 
-            // Update the widget with the selected app.
             try {
                 val appWidgetManager = AppWidgetManager.getInstance(this)
                 ClockWidgetProvider.updateAppWidget(this, appWidgetManager, appWidgetId)
             } catch (e: Exception) {
-                Log.e("ClockWidgetConfig", "Widget update failed", e)
+                Log.e("ClockWidgetConfig", "Error updating widget", e)
             }
 
             // Return OK with the widget ID.
@@ -85,22 +91,20 @@ class ClockWidgetConfigActivity : AppCompatActivity() {
 
     private fun getClockApps(): List<ClockApp> {
         val pm = packageManager
+        // Use literal string for the clock category.
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
-            // Use literal string for the clock category.
             addCategory("android.intent.category.APP_CLOCK")
         }
         val apps = mutableListOf<ClockApp>()
-
-        // Attempt to add the system clock first.
+        // Add the system clock if available.
         try {
             val info = pm.getApplicationInfo("com.android.deskclock", 0)
             val label = pm.getApplicationLabel(info).toString()
             apps.add(ClockApp(label, "com.android.deskclock"))
         } catch (e: PackageManager.NameNotFoundException) {
-            // System clock not found.
+            Log.w("ClockWidgetConfig", "System clock not found.")
         }
-
-        // Query for other clock apps.
+        // Query other clock apps.
         val resolvedApps = pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
         for (res in resolvedApps) {
             val pkg = res.activityInfo.packageName
